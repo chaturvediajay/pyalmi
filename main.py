@@ -1,17 +1,14 @@
-from math import add
-from person import Person
+import numpy as np
+from flask import Flask, request, jsonify, render_template
+import pickle
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return render_template('index.html',prediction_text='Employee Salary should be')
 
 
-def hello(name:str):
-    print("Hello ",name.upper())
 
-if __name__ == '__main__':
-    print("    Ajay Chaturvedi    ")
-    print("    Ajay Chaturvedi    ")
-    print("Ajay Chaturvedi")
-    print(add(4,4))
-    print(hello("ajay"))
-    alex=Person("ajay")
-    print(alex)
-
-
+if __name__ == "__main__":
+    app.run(debug=True)
