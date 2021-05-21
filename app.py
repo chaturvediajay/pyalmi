@@ -23,6 +23,8 @@ def home():
 def visualize():
     sns.lineplot(x, y)
     canvas = FigureCanvas(fig)
+    plt.xlabel('salary')
+    plt.ylabel('age')
     img = io.BytesIO()
     fig.savefig(img)
     img.seek(0)
