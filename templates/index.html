@@ -11,7 +11,12 @@
 	<h1>Predict Salary Analysis</h1>
 <img src="{{ url_for('visualize') }}">
 
-   <br>
+   <br>{{values}}
+
+ {%for value in values%}
+     <p>{{value}}</p>
+  {%endfor%}
+
    <br>
 
    {{ prediction_text }}
