@@ -8,6 +8,10 @@ import seaborn as sns
 import json
 import requests
 
+
+import warnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
 import mysql.connector as connection
 import pandas as pd
 
@@ -26,7 +30,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    # list_test = mysqlCon.MySqlCon.selectMysql()
+    list_test = mysqlCon.MySqlCon.selectMysql()
     data1 = {'username': 'admin', 'password': 'admin'}
     headers = {'Content-type': 'application/json'}
     response = requests.post('https://panicdirection.herokuapp.com/authenticate', json.dumps(data1), headers=headers)
@@ -41,7 +45,7 @@ def home():
         if response.status_code == 200:
             res = str(response.text)
 
-    return render_template('index.html',
+    return render_template('index.html', values=list_test,
                            prediction_text='Employee Salary should be  ' + res)
 
 
