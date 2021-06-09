@@ -1,33 +1,38 @@
-# MySQL Connector/Python - MySQL driver written in Python.
-# Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
-
-# MySQL Connector/Python is licensed under the terms of the GPLv2
-# <http://www.gnu.org/licenses/old-licenses/gpl-2.0.html>, like most
-# MySQL Connectors. There are special exceptions to the terms and
-# conditions of the GPLv2 as it is applied to this software, see the
-# FOSS License Exception
-# <http://www.mysql.com/about/legal/licensing/foss-exception.html>.
+# Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation.
+# it under the terms of the GNU General Public License, version 2.0, as
+# published by the Free Software Foundation.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# This program is also distributed with certain software (including
+# but not limited to OpenSSL) that is licensed under separate terms,
+# as designated in a particular file or component or in included license
+# documentation.  The authors of MySQL hereby grant you an
+# additional permission to link the program and your derivative works
+# with the separately licensed software that they have included with
+# MySQL.
+#
+# Without limiting anything contained in the foregoing, this file,
+# which is part of MySQL Connector/Python, is also subject to the
+# Universal FOSS Exception, version 1.0, a copy of which can be found at
+# http://oss.oracle.com/licenses/universal-foss-exception.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License, version 2.0, for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+# along with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
 """Implementing support for MySQL Authentication Plugins"""
 
-from hashlib import sha1
+from hashlib import sha1, sha256
 import struct
 
 from . import errors
-from .catch23 import PY2, isstr
+from .catch23 import PY2, isstr, UNICODE_TYPES
 
 
 class BaseAuthPlugin(object):
@@ -160,6 +165,82 @@ class MySQLSHA256PasswordAuthPlugin(BaseAuthPlugin):
 
     def prepare_password(self):
         """Returns password as as clear text"""
+        if not self._password:
+            return b'\x00'
+        password = self._password
+
+        if PY2:
+            if isinstance(password, unicode):  # pylint: disable=E0602
+                password = password.encode('utf8')
+        elif isinstance(password, str):
+            password = password.encode('utf8')
+
+        return password + b'\x00'
+
+
+class MySQLCachingSHA2PasswordAuthPlugin(BaseAuthPlugin):
+    """Class implementing the MySQL caching_sha2_password authentication plugin
+
+    Note that encrypting using RSA is not supported since the Python
+    Standard Library does not provide this OpenSSL functionality.
+    """
+    requires_ssl = False
+    plugin_name = 'caching_sha2_password'
+    perform_full_authentication = 4
+    fast_auth_success = 3
+
+    def _scramble(self):
+        """ Returns a scramble of the password using a Nonce sent by the
+        server.
+
+        The scramble is of the form:
+        XOR(SHA2(password), SHA2(SHA2(SHA2(password)), Nonce))
+        """
+        if not self._auth_data:
+            raise errors.InterfaceError("Missing authentication data (seed)")
+
+        if not self._password:
+            return b''
+
+        password = self._password.encode('utf-8') \
+            if isinstance(self._password, UNICODE_TYPES) else self._password
+
+        if PY2:
+            password = buffer(password)  # pylint: disable=E0602
+            try:
+                auth_data = buffer(self._auth_data)  # pylint: disable=E0602
+            except TypeError:
+                raise errors.InterfaceError("Authentication data incorrect")
+        else:
+            password = password
+            auth_data = self._auth_data
+
+        hash1 = sha256(password).digest()
+        hash2 = sha256()
+        hash2.update(sha256(hash1).digest())
+        hash2.update(auth_data)
+        hash2 = hash2.digest()
+        if PY2:
+            xored = [ord(h1) ^ ord(h2) for (h1, h2) in zip(hash1, hash2)]
+        else:
+            xored = [h1 ^ h2 for (h1, h2) in zip(hash1, hash2)]
+        hash3 = struct.pack('32B', *xored)
+
+        return hash3
+
+    def prepare_password(self):
+        if len(self._auth_data) > 1:
+            return self._scramble()
+        elif self._auth_data[0] == self.perform_full_authentication:
+            return self._full_authentication()
+        return None
+
+    def _full_authentication(self):
+        """Returns password as as clear text"""
+        if not self._ssl_enabled:
+            raise errors.InterfaceError("{name} requires SSL".format(
+                name=self.plugin_name))
+
         if not self._password:
             return b'\x00'
         password = self._password
