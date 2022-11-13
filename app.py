@@ -70,7 +70,7 @@ def selectMysql():
     result_dataFrame = ''
     try:
         mydb = connection.connect(host="204.11.58.86", database='panicdis_upgrad', user="panicdis_admin",
-                                  passwd="x{HTdIll{w?l", use_pure=True)
+                                  passwd="Madhu@1959", use_pure=True)
         query = "select * from advertising;"
         result_dataFrame = pd.read_sql(query, mydb)
         print(result_dataFrame.head(10))
