@@ -5,11 +5,13 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import pandas as pd
+
 import json
 import requests
 
-
 import warnings
+
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import mysql.connector as connection
@@ -33,7 +35,8 @@ def home():
     list_test = mysqlCon.MySqlCon.selectMysql()
     data1 = {'userName': 'admin123', 'userPassword': 'admin@pass'}
     headers = {'Content-type': 'application/json'}
-    response = requests.post('https://jwtauthenicate.herokuapp.com/api/auth/authenticate', json.dumps(data1), headers=headers)
+    response = requests.post('https://jwtauthenicate.herokuapp.com/api/auth/authenticate', json.dumps(data1),
+                             headers=headers)
     res = ''
     if response.status_code == 200:
         print('response Code ' + str(response.status_code))
@@ -49,6 +52,14 @@ def home():
     return render_template('index.html', values=list_test,
                            prediction_text='Employee Salary should be  ' + res)
     # return render_template('index.html')
+
+
+@app.route('/about')
+def about():
+    df = pd.read_csv('data/olist_customers_dataset.csv')
+    df = df.head()
+    df_tohtml = df.to_html()
+    return render_template('about.html', data_html=df_tohtml)
 
 
 @app.route('/visualize')

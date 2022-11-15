@@ -2,6 +2,7 @@ import mysql.connector as connection
 import pandas as pd
 import json
 
+
 class MySqlCon:
     def selectMysql():
         result_dataFrame = ''
@@ -18,7 +19,3 @@ class MySqlCon:
             mydb.close()
             print(str(e))
         return result_dataFrame
-
-
-
-
